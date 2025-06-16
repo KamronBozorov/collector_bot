@@ -1,8 +1,8 @@
 import { Column, DataType, Model, Table } from 'sequelize-typescript';
 
 interface IUserCreationAttr {
-  name: string;
-  birthday: Date;
+  user_id: number;
+  last_state: string;
 }
 
 @Table({ tableName: 'users', timestamps: false })
@@ -15,21 +15,22 @@ export class User extends Model<User, IUserCreationAttr> {
   declare id: number;
 
   @Column({
-    type: DataType.STRING,
+    type: DataType.BIGINT,
     allowNull: false,
+    unique: true,
+    validate: {
+      isInt: true,
+      min: 1,
+    },
+  })
+  declare user_id: number;
+
+  @Column({
+    type: DataType.STRING,
     validate: {
       notEmpty: true,
       len: [1, 255],
     },
   })
-  declare name: string;
-
-  @Column({
-    type: DataType.DATE,
-    allowNull: true,
-    validate: {
-      isDate: true,
-    },
-  })
-  declare birthday: Date;
+  declare last_state: string;
 }

@@ -3,20 +3,25 @@ import { BotService } from './bot.service';
 import { BotUpdate } from './bot.update';
 import { CollectionsService } from './collections/collections.service';
 import { CollectionsUpdate } from './collections/collections.update';
-import { UsersService } from './users/users.service';
-import { UsersUpdate } from './users/users.update';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { User } from './models/users.model';
 import { Collection } from './models/collections.model';
+import { CollectionUser } from './models/collection-user.model';
+import { Employee } from './models/employees.model';
+import { EmployeesService } from './employees/employees.service';
+import { EmployeesUpdate } from './employees/employees.update';
 
 @Module({
-  imports: [SequelizeModule.forFeature([User, Collection])],
+  imports: [
+    SequelizeModule.forFeature([User, Collection, CollectionUser, Employee]),
+  ],
+  controllers: [],
   providers: [
     BotService,
     CollectionsService,
     CollectionsUpdate,
-    UsersService,
-    UsersUpdate,
+    EmployeesService,
+    EmployeesUpdate,
     BotUpdate,
   ],
   exports: [BotService],

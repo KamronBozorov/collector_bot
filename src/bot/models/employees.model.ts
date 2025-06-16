@@ -1,12 +1,12 @@
 import { Column, DataType, Model, Table } from 'sequelize-typescript';
 
-interface ICollectionAttributes {
+interface IEmployeeCreationAttr {
   name?: string;
-  amount?: number;
+  birthday?: Date;
 }
 
-@Table({ tableName: 'collections', timestamps: false })
-export class Collection extends Model<Collection, ICollectionAttributes> {
+@Table({ tableName: 'employees', timestamps: false })
+export class Employee extends Model<Employee, IEmployeeCreationAttr> {
   @Column({
     type: DataType.INTEGER,
     primaryKey: true,
@@ -25,13 +25,8 @@ export class Collection extends Model<Collection, ICollectionAttributes> {
   declare name: string;
 
   @Column({
-    type: DataType.DECIMAL,
+    type: DataType.DATEONLY,
     allowNull: true,
-    defaultValue: 0,
-    validate: {
-      isInt: true,
-      min: 0,
-    },
   })
-  declare amount: number;
+  declare birthday: Date;
 }

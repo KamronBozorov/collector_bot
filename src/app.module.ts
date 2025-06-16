@@ -7,6 +7,8 @@ import { BOT_NAME } from './constants';
 import { User } from './bot/models/users.model';
 import { Collection } from './bot/models/collections.model';
 import { CollectionUser } from './bot/models/collection-user.model';
+import { Employee } from './bot/models/employees.model';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -28,7 +30,7 @@ import { CollectionUser } from './bot/models/collection-user.model';
       username: process.env.PG_USER,
       password: process.env.PG_PASSWORD,
       database: process.env.PG_DB,
-      models: [User, Collection, CollectionUser],
+      models: [User, Collection, CollectionUser, Employee],
       autoLoadModels: true,
       sync: {
         alter: true,
