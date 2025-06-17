@@ -6,8 +6,8 @@ import { BotModule } from './bot/bot.module';
 import { BOT_NAME } from './constants';
 import { User } from './bot/models/users.model';
 import { Collection } from './bot/models/collections.model';
-import { CollectionUser } from './bot/models/collection-user.model';
 import { Employee } from './bot/models/employees.model';
+import { CollectionEmployee } from './bot/models/collection-employee.model';
 
 @Module({
   imports: [
@@ -30,7 +30,7 @@ import { Employee } from './bot/models/employees.model';
       username: process.env.PG_USER,
       password: process.env.PG_PASSWORD,
       database: process.env.PG_DB,
-      models: [User, Collection, CollectionUser, Employee],
+      models: [User, Collection, CollectionEmployee, Employee],
       autoLoadModels: true,
       sync: {
         alter: true,

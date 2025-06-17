@@ -7,7 +7,6 @@ export class BotUpdate {
   constructor(private readonly botService: BotService) {}
   @Start()
   async start(@Ctx() ctx: Context) {
-    console.log('Bot started');
     await this.botService.start(ctx);
   }
 

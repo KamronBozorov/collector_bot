@@ -50,6 +50,20 @@ export class EmployeesUpdate {
     }
   }
 
+  @Action(/toggle_employee_(.+)_(.+)/)
+  async toggleEmployee(@Ctx() ctx: Context) {
+    const [employeeId, collectionId] = ctx
+      .callbackQuery!['data'].split('_')
+      .slice(2);
+    if (employeeId && collectionId) {
+      await this.employeesService.toggleEmployee(
+        ctx,
+        parseInt(employeeId, 10),
+        parseInt(collectionId, 10),
+      );
+    }
+  }
+
   private async deleteLastMessage(ctx: Context) {
     const message = ctx.callbackQuery?.message;
     if (message && message.message_id) {

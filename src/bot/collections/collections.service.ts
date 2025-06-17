@@ -1,8 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Sequelize } from 'sequelize-typescript';
+import { QueryTypes } from 'sequelize';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Collection } from '../models/collections.model';
 import { InjectModel } from '@nestjs/sequelize';
 import { Context } from 'telegraf';
 import { User } from '../models/users.model';
+import { EmployeesService } from '../employees/employees.service';
+import { CollectionEmployee } from '../models/collection-employee.model';
+import { Employee } from '../models/employees.model';
+import { BotService } from '../bot.service';
 
 @Injectable()
 export class CollectionsService {
@@ -11,6 +17,12 @@ export class CollectionsService {
     @InjectModel(User) private readonly userModel: typeof User,
     @InjectModel(Collection)
     private readonly collectionModel: typeof Collection,
+    @InjectModel(CollectionEmployee)
+    private readonly collectionEmployeeModel: typeof CollectionEmployee,
+    @Inject(forwardRef(() => EmployeesService))
+    private readonly employeeService: EmployeesService,
+    private readonly botService: BotService,
+    private readonly sequelize: Sequelize,
   ) {}
 
   async findAll(): Promise<Collection[] | null> {
@@ -52,10 +64,6 @@ export class CollectionsService {
           {
             text: `${collection.name || 'Yig‘im'} - ${collection.amount || 0} so‘m`,
             callback_data: `view_collection_${collection.id}`,
-          },
-          {
-            text: '❌ O‘chirish',
-            callback_data: `delete_collection_${collection.id}`,
           },
         ];
       });
@@ -104,5 +112,193 @@ export class CollectionsService {
     await collection.destroy();
 
     await this.accumalateMenu(ctx);
+  }
+
+  async view(ctx: Context, collectionId: number) {
+    const employees = await this.employeeService.findAll();
+
+    if (!employees) {
+      await ctx.reply(
+        `Yi'gin qilish uchun odam topilmadi, iltmos odam qo'shing`,
+      );
+
+      await this.botService.start(ctx);
+
+      return;
+    }
+
+    const collection = await this.collectionModel.findByPk(collectionId);
+
+    if (!collection) {
+      await ctx.reply('❗️ <b>Yig‘im topilmadi.</b>', {
+        parse_mode: 'HTML',
+      });
+      return;
+    }
+
+    const bulkCreation = employees!.map((e) => {
+      return {
+        collection_id: collectionId,
+        user_id: e.id,
+        is_paid: false,
+      };
+    });
+
+    const existingBindings = await this.collectionEmployeeModel.findAll({
+      where: { collection_id: collectionId },
+    });
+
+    const existingEmployeeIds = existingBindings.map(
+      (binding) => binding.user_id,
+    );
+
+    const newBindings = bulkCreation.filter(
+      (binding) => !existingEmployeeIds.includes(binding.user_id),
+    );
+
+    if (newBindings.length > 0) {
+      await this.collectionEmployeeModel.bulkCreate(newBindings);
+    }
+
+    const inlineKeyboard: any[] = [];
+    const buttonInfo: any[] = [];
+
+    for (let i = 0; i < employees.length; i++) {
+      const employee = employees[i];
+      const binding = await this.collectionEmployeeModel.findOne({
+        where: {
+          collection_id: collectionId,
+          user_id: employee.id,
+        },
+      });
+
+      if (binding) {
+        buttonInfo.push({
+          text: `${binding.is_paid ? '✅' : '❌'} ${employee.name}  `,
+          callback_data: `toggle_employee_${employee.id}_${collectionId}`,
+        });
+
+        if (buttonInfo.length === 2 || i === employees.length - 1) {
+          inlineKeyboard.push([...buttonInfo]);
+          buttonInfo.length = 0;
+        }
+      }
+    }
+
+    inlineKeyboard.push([
+      {
+        text: '🔙 Orqaga',
+        callback_data: `collection_menu`,
+      },
+    ]);
+
+    await ctx.reply(`📊 <b> Yig‘imga bog‘langan foydalanuvchilar:</b>`, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    });
+  }
+
+  async acceptCollection(ctx: Context, collectionId: number) {
+    const collection = await this.collectionModel.findByPk(collectionId);
+    if (!collection) {
+      await ctx.replyWithHTML("❌ <b>Yig'im topilmadi.</b>");
+      return;
+    }
+
+    const activeEmployees = await this.collectionEmployeeModel.findAll({
+      where: {
+        collection_id: collectionId,
+        is_paid: true,
+      },
+    });
+
+    if (activeEmployees.length === 0) {
+      await ctx.replyWithHTML(
+        '⚠️ <b>Hech qanday foydalanuvchi tanlanmagan. Iltimos, kamida bitta foydalanuvchini tanlang.</b>',
+      );
+      return;
+    }
+
+    await this.accumalateMenu(ctx);
+  }
+
+  async cancelCollection(ctx: Context, collectionId: number) {
+    const collection = await this.collectionModel.findByPk(collectionId);
+
+    if (!collection) return;
+    else if (collection) {
+      await this.collectionModel.destroy({ where: { id: collectionId } });
+      await this.collectionEmployeeModel.destroy({
+        where: { collection_id: collectionId },
+      });
+    }
+
+    await this.accumalateMenu(ctx);
+  }
+
+  async toggleCollectionBinding(
+    ctx: Context,
+    employeeId: number,
+    collectionId: number,
+  ) {
+    const existing = await this.collectionEmployeeModel.findOne({
+      where: {
+        user_id: employeeId,
+        collection_id: collectionId,
+      },
+    });
+
+    let isActive: any = existing?.is_active;
+
+    if (isActive) {
+      await this.collectionEmployeeModel.update(
+        { is_active: false },
+        {
+          where: {
+            user_id: employeeId,
+            collection_id: collectionId,
+          },
+        },
+      );
+    } else {
+      await this.collectionEmployeeModel.update(
+        { is_active: true },
+        {
+          where: {
+            user_id: employeeId,
+            collection_id: collectionId,
+          },
+        },
+      );
+    }
+
+    const employees = await this.employeeService.findAll();
+
+    if (!employees) return;
+
+    const inlineKeyboard = employees.map((employee) => [
+      {
+        text: `${isActive} ${employee.name}`,
+        callback_data: `toggle_collection_binding_${employee.id}_${collectionId}`,
+      },
+    ]);
+
+    inlineKeyboard.push([
+      {
+        text: '🟢 Yig‘imni yakunlash',
+        callback_data: `finalize_collection_${collectionId}`,
+      },
+    ]);
+
+    await ctx.replyWithHTML(
+      `<b>Quyidagi foydalanuvchilardan kimni ushbu yig‘imga biriktirmoqchisiz?</b>\nBosish orqali tanlang:`,
+      {
+        reply_markup: {
+          inline_keyboard: inlineKeyboard,
+        },
+      },
+    );
   }
 }

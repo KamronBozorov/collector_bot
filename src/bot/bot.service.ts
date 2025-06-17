@@ -3,9 +3,14 @@ import { Context, Markup } from 'telegraf';
 import { User } from './models/users.model';
 import { InjectModel } from '@nestjs/sequelize';
 import { Collection } from './models/collections.model';
-import { CollectionsService } from './collections/collections.service';
 import { Employee } from './models/employees.model';
+import { CollectionEmployee } from './models/collection-employee.model';
+import { Sequelize } from 'sequelize-typescript';
+import { type } from 'os';
+import { QueryTypes } from 'sequelize';
+import { warn } from 'console';
 
+Sequelize;
 @Injectable()
 export class BotService {
   constructor(
@@ -13,10 +18,12 @@ export class BotService {
     @InjectModel(Employee) private readonly employeeModel: typeof Employee,
     @InjectModel(Collection)
     private readonly collectionModel: typeof Collection,
+    @InjectModel(CollectionEmployee)
+    private readonly collectionEmployeeModel: typeof CollectionEmployee,
+    private readonly sequelize: Sequelize,
   ) {}
   async start(ctx: Context) {
     await ctx.sendChatAction('typing');
-    console.log(ctx.from?.id);
 
     await ctx.reply("📋 <b>Kerakli bo'limni tanlang:</b>", {
       parse_mode: 'HTML',
@@ -77,6 +84,7 @@ export class BotService {
 
         case lastState.startsWith('waiting_for_collection_amount_'): {
           const collectionId = lastState.split('_')[4];
+
           if (!collectionId) {
             await ctx.replyWithHTML(`⚠️ <b>Yig‘im ID topilmadi.</b>`);
             await this.userModel.update(
@@ -99,9 +107,44 @@ export class BotService {
             { where: { id: collectionId } },
           );
 
-          await ctx.replyWithHTML(`✅ <b>Yig‘im muvaffaqiyatli yaratildi!</b>`);
+          const employees = await this.employeeModel.findAll();
+
+          if (employees.length === 0) {
+            await ctx.replyWithHTML(
+              `⚠️ <b>Hozirda hech qanday foydalanuvchi mavjud emas. Iltimos, avval foydalanuvchi qo‘shing.</b>`,
+            );
+            await this.userModel.update(
+              { last_state: 'main_menu' },
+              { where: { user_id: ctx.from?.id } },
+            );
+            return;
+          }
+
+          const inlineKeyboard = employees.map((employee) => [
+            {
+              text: `✅ ${employee.name}`,
+              callback_data: `toggle_collection_binding_${employee.id}_${collectionId}`,
+            },
+          ]);
+
+          inlineKeyboard.push([
+            {
+              text: '🟢 Yig‘imni yakunlash',
+              callback_data: `finalize_collection_${collectionId}`,
+            },
+          ]);
+
+          await ctx.replyWithHTML(
+            `<b>Quyidagi foydalanuvchilardan kimni ushbu yig‘imga biriktirmoqchisiz?</b>\nBosish orqali tanlang:`,
+            {
+              reply_markup: {
+                inline_keyboard: inlineKeyboard,
+              },
+            },
+          );
+
           await this.userModel.update(
-            { last_state: 'main_menu' },
+            { last_state: `binding_collection_users_${collectionId}` },
             { where: { user_id: ctx.from?.id } },
           );
 
@@ -164,14 +207,17 @@ export class BotService {
           await ctx.replyWithHTML(
             `✅ <b>Foydalanuvchi muvaffaqiyatli yaratildi!</b>`,
           );
+
           await this.userModel.update(
             { last_state: 'main_menu' },
             { where: { user_id: ctx.from?.id } },
           );
+
+          await this.accumulateMenu(ctx);
           break;
 
-        case lastState.startsWith('waiting_for_employee_name_change_'):
-          const editEmployeeId = lastState.split('_')[5];
+        case lastState.startsWith('change_employee_name_'):
+          const editEmployeeId = lastState.split('_')[3];
           if (!editEmployeeId) {
             await ctx.replyWithHTML(`⚠️ <b>Foydalanuvchi ID topilmadi.</b>`);
             await this.userModel.update(
@@ -185,9 +231,47 @@ export class BotService {
               { where: { id: editEmployeeId } },
             );
 
-            await ctx.replyWithHTML(
-              `✅ <b>Foydalanuvchi ma'lumotlari yangilandi!</b>`,
+            await this.userModel.update(
+              {
+                last_state: `change_employee_birthday_${editEmployeeId}`,
+              },
+              { where: { user_id: ctx.from?.id } },
             );
+
+            await ctx.replyWithHTML(
+              `💰 <b>Endi foydalanuvchi tug'ilgan sanasini kiriting:</b>\n(Masalan: '1990-01-01')`,
+            );
+          }
+          break;
+
+        case lastState.startsWith('change_employee_birthday_'):
+          const editEmpId = lastState.split('_')[3];
+          if (!editEmpId) {
+            await ctx.replyWithHTML(`⚠️ <b>Foydalanuvchi ID topilmadi.</b>`);
+            await this.userModel.update(
+              { last_state: 'main_menu' },
+              { where: { user_id: ctx.from?.id } },
+            );
+            return;
+          } else {
+            const birthdayChange = new Date(userInput);
+            if (isNaN(birthdayChange.getTime())) {
+              await ctx.replyWithHTML(
+                `🚫 <b>Iltimos, to‘g‘ri sana formatini kiriting (YYYY-MM-DD).</b>`,
+              );
+              return;
+            }
+
+            await this.employeeModel.update(
+              { birthday: birthdayChange },
+              { where: { id: editEmpId } },
+            );
+
+            await ctx.replyWithHTML(
+              `✅ <b>Foydalanuvchi muvaffaqiyatli tahrirlandi!</b>`,
+            );
+
+            await this.accumulateMenu(ctx);
             await this.userModel.update(
               { last_state: 'main_menu' },
               { where: { user_id: ctx.from?.id } },
@@ -212,5 +296,85 @@ export class BotService {
         `❗️ <b>Xatolik yuz berdi. Iltimos, qaytadan urinib ko‘ring.</b>`,
       );
     }
+  }
+
+  async accumulateMenu(ctx: any) {
+    const employees = await this.employeeModel.findAll();
+
+    const inlineKeyboard: any[] = [];
+    const buttonInfo: any[] = [];
+    if (employees && employees.length > 0) {
+      for (let i = 0; i < employees.length; i++) {
+        const employee = employees[i];
+
+        buttonInfo.push({
+          text: `${employee.name || 'Barcha foydalanuvchi'} `,
+          callback_data: `view_employee_${employee.id}`,
+        });
+
+        if (buttonInfo.length === 2 || i === employees.length - 1) {
+          inlineKeyboard.push([...buttonInfo]);
+          buttonInfo.length = 0;
+        }
+      }
+    }
+
+    inlineKeyboard.push([
+      {
+        text: '➕ Yangi foydalanuvchi qo‘shish',
+        callback_data: 'create_employee',
+      },
+      {
+        text: '🔙 Orqaga',
+        callback_data: 'main_menu',
+      },
+    ]);
+
+    await ctx.reply('👥 <b> Foydalanuvchilar </b>\n\n', {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: inlineKeyboard,
+      },
+    });
+  }
+
+  async accumalateMenuCollection(ctx: Context) {
+    const collections = await this.collectionModel.findAll();
+
+    const inlineKeyboard: any[] = [];
+    if (collections && collections.length > 0) {
+      const collectionButtons = collections.map((collection) => {
+        return [
+          {
+            text: `${collection.name || 'Yig‘im'} - ${collection.amount || 0} so‘m`,
+            callback_data: `view_collection_${collection.id}`,
+          },
+        ];
+      });
+
+      inlineKeyboard.push(...collectionButtons);
+    }
+
+    await ctx.reply(
+      '💰 <b>Yig‘imlar bo‘limi</b>\nQuyidagilardan birini tanlang:',
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            ...inlineKeyboard,
+            [
+              {
+                text: '➕ Yangi yig‘im yaratish',
+                callback_data: 'create_collection',
+              },
+              {
+                text: '🔙 Asosiy menyu',
+                callback_data: 'main_menu',
+              },
+            ],
+          ],
+        },
+      },
+    );
   }
 }
