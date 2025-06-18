@@ -1,6 +1,6 @@
 import { Action, Ctx, Hears, Update } from 'nestjs-telegraf';
-import { EmployeesService } from './employees.service';
 import { Context } from 'telegraf';
+import { EmployeesService } from './employees.service';
 
 @Update()
 export class EmployeesUpdate {
@@ -63,6 +63,31 @@ export class EmployeesUpdate {
       );
     }
   }
+
+  //@Action(/add_employee_to_collection_(.+)_(.+)/)
+  //async addEmployeeToCollection(@Ctx() ctx: Context) {
+  //  const employeeId = ctx.callbackQuery!['data'].split('_')[4];
+  //  const collectionId = ctx.callbackQuery!['data'].split('_')[5];
+  //
+  //  if (employeeId && collectionId) {
+  //    await this.employeesService.addEmpyloyeeToCollection(
+  //      ctx,
+  //      parseInt(employeeId, 10),
+  //      parseInt(collectionId, 10),
+  //    );
+  //  }
+  //}
+  //
+  //@Action(/configure_(.+)_employee_(.+)/)
+  //async configureEmployee(@Ctx() ctx: Context) {
+  //  await this.deleteLastMessage(ctx);
+  //  const type = ctx.callbackQuery!['data'].split('_')[1];
+  //  const empId = ctx.callbackQuery!['data'].split('_')[3];
+  //
+  //  if (type && empId) {
+  //    await this.employeesService.configureEmployee(ctx, type, empId);
+  //  }
+  //}
 
   private async deleteLastMessage(ctx: Context) {
     const message = ctx.callbackQuery?.message;

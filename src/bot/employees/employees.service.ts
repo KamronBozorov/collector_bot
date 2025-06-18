@@ -1,10 +1,10 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Employee } from '../models/employees.model';
-import { User } from '../models/users.model';
-import { CollectionEmployee } from '../models/collection-employee.model';
 import { Context } from 'telegraf';
 import { CollectionsService } from '../collections/collections.service';
+import { CollectionEmployee } from '../models/collection-employee.model';
+import { Employee } from '../models/employees.model';
+import { User } from '../models/users.model';
 
 @Injectable()
 export class EmployeesService {
@@ -17,7 +17,11 @@ export class EmployeesService {
     private readonly collectionService: CollectionsService,
   ) {}
   async findAll(): Promise<Employee[] | null> {
-    const employees = await this.employeeModel.findAll({});
+    const employees = await this.employeeModel.findAll({
+      where: {
+        is_finilized: true,
+      },
+    });
 
     if (employees.length > 0) {
       return employees;
@@ -106,8 +110,8 @@ export class EmployeesService {
 
     await ctx.replyWithHTML(
       `👤 <b>Foydalanuvchi ma'lumotlari</b>\n\n` +
-        `<b>Ismi:</b> ${employee.name}\n` +
         `<b>ID:</b> <code>${employee.id}</code>\n` +
+        `<b>Ismi:</b> ${employee.name}\n` +
         `<b>Tug‘ilgan sana:</b> ${birthdateFormatted}`,
       {
         reply_markup: {
@@ -176,6 +180,18 @@ export class EmployeesService {
   }
 
   async toggleEmployee(ctx: Context, employeeId: number, collectionId: number) {
+    const collection = await this.collectionService.findByPk(collectionId);
+
+    if (collection?.is_archived) {
+      await ctx.answerCbQuery(
+        "❌ Yig'im arxivlangan, foydalanuvchi qo'sha olmaysiz ",
+        {
+          show_alert: false,
+        },
+      );
+      return;
+    }
+
     const bindings = await this.collectionEmployeeModel.findOne({
       where: { collection_id: collectionId, user_id: employeeId },
     });
@@ -195,7 +211,69 @@ export class EmployeesService {
         ctx.chat?.id!,
         ctx.callbackQuery?.message?.message_id!,
       );
+
       await this.collectionService.view(ctx, collectionId);
     }
   }
+
+  //async addEmpyloyeeToCollection(
+  //  ctx: Context,
+  //  employeeId: number,
+  //  collectionId: number,
+  //) {
+  //  const binding = await this.collectionEmployeeModel.findOne({
+  //    where: {
+  //      user_id: employeeId,
+  //      collection_id: collectionId,
+  //    },
+  //  });
+  //
+  //  if (binding) {
+  //    await this.collectionEmployeeModel.destroy({
+  //      where: {
+  //        collection_id: collectionId,
+  //        user_id: employeeId,
+  //      },
+  //    });
+  //
+  //    await ctx.answerCbQuery(`❌ Foydalanuvchi bo'limdan o'chirildi.`, {
+  //      show_alert: false,
+  //    });
+  //  } else {
+  //    await this.collectionEmployeeModel.create({
+  //      collection_id: collectionId,
+  //      user_id: employeeId,
+  //      is_active: true,
+  //    });
+  //    await ctx.answerCbQuery("✅ Foydalanuvchi bo'limga qo'shildi", {
+  //      show_alert: false,
+  //    });
+  //  }
+  //}
+  //
+  //async configureEmployee(ctx: Context, type: string, employeeId: number) {
+  //  if (type === 'accept') {
+  //    await this.employeeModel.update(
+  //      {
+  //        is_finilized: true,
+  //      },
+  //      {
+  //        where: {
+  //          id: employeeId,
+  //        },
+  //      },
+  //    );
+  //
+  //    await ctx.answerCbQuery('✅ Foydalanuvchi muvaffaqiyatli tasdiqlandi.', {
+  //      show_alert: false,
+  //    });
+  //  } else {
+  //    await ctx.answerCbQuery(
+  //      '❌ Foydalanuvchi muvaffaqiyatli tasdiqlanmadi.',
+  //      { show_alert: false },
+  //    );
+  //  }
+  //
+  //  await this.accumulateMenu(ctx);
+  //}
 }

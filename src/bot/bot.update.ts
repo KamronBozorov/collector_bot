@@ -1,4 +1,5 @@
-import { Update, Ctx, Start, Help, On, Hears, Action } from 'nestjs-telegraf';
+import { Cron } from '@nestjs/schedule';
+import { Action, Ctx, On, Start, Update } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 import { BotService } from './bot.service';
 
@@ -8,6 +9,13 @@ export class BotUpdate {
   @Start()
   async start(@Ctx() ctx: Context) {
     await this.botService.start(ctx);
+  }
+
+  @Cron('0 0 6 * * *', {
+    timeZone: 'Asia/Tashkent',
+  })
+  async handleCron() {
+    await this.botService.handleCron();
   }
 
   @On('text')

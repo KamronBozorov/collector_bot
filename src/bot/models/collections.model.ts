@@ -4,6 +4,7 @@ interface ICollectionAttributes {
   name?: string;
   amount?: number;
   is_finilized?: boolean;
+  is_archived?: boolean;
 }
 
 @Table({ tableName: 'collections', timestamps: false })
@@ -44,4 +45,13 @@ export class Collection extends Model<Collection, ICollectionAttributes> {
     },
   })
   declare is_finilized: boolean;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: false,
+    validate: {
+      isBoolean: true,
+    },
+  })
+  declare is_archived: boolean;
 }

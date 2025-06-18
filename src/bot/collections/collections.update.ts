@@ -1,7 +1,6 @@
-import { Action, Update, Ctx, On, Hears } from 'nestjs-telegraf';
-import { CollectionsService } from './collections.service';
+import { Action, Ctx, Hears, Update } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
-import { omitUndefined } from 'mongoose';
+import { CollectionsService } from './collections.service';
 
 interface CustomContext extends Context {
   session?: {
@@ -21,6 +20,7 @@ export class CollectionsUpdate {
 
   @Action(/delete_collection_(.+)/)
   async deleteCollection(@Ctx() ctx: CustomContext) {
+    await this.deleteLastMessage(ctx);
     await this.collectionsService.delete(ctx);
   }
 
@@ -93,6 +93,30 @@ export class CollectionsUpdate {
 
     if (collectionId) {
       await this.collectionsService.finalizeCollection(
+        ctx,
+        parseInt(collectionId, 10),
+      );
+    }
+  }
+
+  @Action(/^archive_collection_(.+)/)
+  async archiveCollection(@Ctx() ctx: Context) {
+    await this.deleteLastMessage(ctx);
+    const collectionId = ctx.callbackQuery!['data'].split('_')[2];
+    if (collectionId) {
+      await this.collectionsService.archiveCollection(
+        ctx,
+        parseInt(collectionId, 10),
+      );
+    }
+  }
+
+  @Action(/^unarchive_collection_(.+)/)
+  async unarchiveCollection(@Ctx() ctx: Context) {
+    await this.deleteLastMessage(ctx);
+    const collectionId = ctx.callbackQuery!['data'].split('_')[2];
+    if (collectionId) {
+      await this.collectionsService.unarchiveCollection(
         ctx,
         parseInt(collectionId, 10),
       );

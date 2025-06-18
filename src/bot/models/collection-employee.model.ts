@@ -7,7 +7,6 @@ import {
   Table,
 } from 'sequelize-typescript';
 import { Collection } from './collections.model';
-import { User } from './users.model';
 import { Employee } from './employees.model';
 
 interface CollectionEmployeeAttributes {

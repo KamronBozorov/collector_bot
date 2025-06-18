@@ -1,16 +1,13 @@
-import { Sequelize } from 'sequelize-typescript';
-import { QueryTypes } from 'sequelize';
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
-import { Collection } from '../models/collections.model';
 import { InjectModel } from '@nestjs/sequelize';
+import { QueryTypes } from 'sequelize';
+import { Sequelize } from 'sequelize-typescript';
 import { Context } from 'telegraf';
-import { User } from '../models/users.model';
+import { BotService } from '../bot.service';
 import { EmployeesService } from '../employees/employees.service';
 import { CollectionEmployee } from '../models/collection-employee.model';
-import { Employee } from '../models/employees.model';
-import { BotService } from '../bot.service';
-import { on } from 'events';
-import { IS_ASCII } from 'class-validator';
+import { Collection } from '../models/collections.model';
+import { User } from '../models/users.model';
 
 @Injectable()
 export class CollectionsService {
@@ -97,12 +94,6 @@ export class CollectionsService {
   }
 
   async delete(ctx: Context) {
-    const message = ctx.callbackQuery?.message;
-
-    if (message && message.message_id) {
-      await ctx.telegram.deleteMessage(ctx.chat?.id!, message.message_id);
-    }
-
     const messageData = ctx.callbackQuery!['data'];
 
     const collectionId = messageData.split('_')[2];
@@ -160,17 +151,36 @@ export class CollectionsService {
       }
     }
 
-    inlineKeyboard.push([
-      {
-        text: '🔙 Orqaga',
-        callback_data: `collection_menu`,
-      },
-    ]);
+    const isArchived = collection.is_archived; // yoki `collection.archived === true`
+
+    const actionButton = isArchived
+      ? {
+          text: '📤 Unarxivlash',
+          callback_data: `unarchive_collection_${collection.id}`,
+        }
+      : {
+          text: '📥 Arxivlash',
+          callback_data: `archive_collection_${collection.id}`,
+        };
+
+    const additionalKeyboard = [
+      [
+        actionButton,
+        {
+          text: '🗑️ O‘chirish',
+          callback_data: `delete_collection_${collection.id}`,
+        },
+        {
+          text: '🔙 Orqaga',
+          callback_data: 'collection_menu',
+        },
+      ],
+    ];
 
     await ctx.reply(`📊 <b> Yig‘imga bog‘langan foydalanuvchilar:</b>`, {
       parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: inlineKeyboard,
+        inline_keyboard: [...inlineKeyboard, ...additionalKeyboard],
       },
     });
   }
@@ -301,6 +311,50 @@ export class CollectionsService {
     await this.collectionModel.update(
       {
         is_finilized: true,
+      },
+      {
+        where: {
+          id: collectionId,
+        },
+      },
+    );
+
+    await this.accumalateMenu(ctx);
+  }
+
+  async archiveCollection(ctx: Context, collectionId: number) {
+    const collection = await this.collectionModel.findByPk(collectionId);
+
+    if (!collection) return;
+
+    await this.collectionModel.update(
+      {
+        is_archived: true,
+        name: collection.name + ' (archived)',
+      },
+      {
+        where: {
+          id: collectionId,
+        },
+      },
+    );
+
+    await this.accumalateMenu(ctx);
+  }
+
+  async findByPk(id: number) {
+    return await this.collectionModel.findByPk(id);
+  }
+
+  async unarchiveCollection(ctx: Context, collectionId: number) {
+    const collection = await this.collectionModel.findByPk(collectionId);
+
+    if (!collection) return;
+
+    await this.collectionModel.update(
+      {
+        is_archived: false,
+        name: collection.name.replace(' (archived)', ''),
       },
       {
         where: {

@@ -1,1 +1,1 @@
-export const BOT_NAME = 'my-telegram-bot';
+export const BOT_NAME = 'collector';

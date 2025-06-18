@@ -8,9 +8,11 @@ import { User } from './bot/models/users.model';
 import { Collection } from './bot/models/collections.model';
 import { Employee } from './bot/models/employees.model';
 import { CollectionEmployee } from './bot/models/collection-employee.model';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       envFilePath: '.env',
       isGlobal: true,
