@@ -9,6 +9,8 @@ import { EmployeesService } from '../employees/employees.service';
 import { CollectionEmployee } from '../models/collection-employee.model';
 import { Employee } from '../models/employees.model';
 import { BotService } from '../bot.service';
+import { on } from 'events';
+import { IS_ASCII } from 'class-validator';
 
 @Injectable()
 export class CollectionsService {
@@ -115,18 +117,6 @@ export class CollectionsService {
   }
 
   async view(ctx: Context, collectionId: number) {
-    const employees = await this.employeeService.findAll();
-
-    if (!employees) {
-      await ctx.reply(
-        `Yi'gin qilish uchun odam topilmadi, iltmos odam qo'shing`,
-      );
-
-      await this.botService.start(ctx);
-
-      return;
-    }
-
     const collection = await this.collectionModel.findByPk(collectionId);
 
     if (!collection) {
@@ -136,52 +126,37 @@ export class CollectionsService {
       return;
     }
 
-    const bulkCreation = employees!.map((e) => {
-      return {
-        collection_id: collectionId,
-        user_id: e.id,
-        is_paid: false,
-      };
-    });
-
-    const existingBindings = await this.collectionEmployeeModel.findAll({
-      where: { collection_id: collectionId },
-    });
-
-    const existingEmployeeIds = existingBindings.map(
-      (binding) => binding.user_id,
-    );
-
-    const newBindings = bulkCreation.filter(
-      (binding) => !existingEmployeeIds.includes(binding.user_id),
-    );
-
-    if (newBindings.length > 0) {
-      await this.collectionEmployeeModel.bulkCreate(newBindings);
-    }
-
     const inlineKeyboard: any[] = [];
     const buttonInfo: any[] = [];
 
-    for (let i = 0; i < employees.length; i++) {
-      const employee = employees[i];
-      const binding = await this.collectionEmployeeModel.findOne({
-        where: {
-          collection_id: collectionId,
-          user_id: employee.id,
+    const bindings = await this.collectionEmployeeModel.findAll({
+      where: {
+        collection_id: collectionId,
+        is_active: true,
+      },
+    });
+
+    for (let i = 0; i < bindings.length; i++) {
+      const binding = bindings[i];
+
+      const name = await this.sequelize.query(
+        'SELECT name FROM employees WHERE id=:id',
+        {
+          type: QueryTypes.SELECT,
+          replacements: {
+            id: binding.user_id,
+          },
         },
+      );
+
+      buttonInfo.push({
+        text: `${binding.is_paid ? '✅' : '❌'} ${'name' in name[0] ? name[0].name : 'Unknown'}  `,
+        callback_data: `toggle_employee_${binding.user_id}_${collectionId}`,
       });
 
-      if (binding) {
-        buttonInfo.push({
-          text: `${binding.is_paid ? '✅' : '❌'} ${employee.name}  `,
-          callback_data: `toggle_employee_${employee.id}_${collectionId}`,
-        });
-
-        if (buttonInfo.length === 2 || i === employees.length - 1) {
-          inlineKeyboard.push([...buttonInfo]);
-          buttonInfo.length = 0;
-        }
+      if (buttonInfo.length === 2 || i === bindings.length - 1) {
+        inlineKeyboard.push([...buttonInfo]);
+        buttonInfo.length = 0;
       }
     }
 
@@ -278,12 +253,28 @@ export class CollectionsService {
 
     if (!employees) return;
 
-    const inlineKeyboard = employees.map((employee) => [
-      {
-        text: `${isActive} ${employee.name}`,
-        callback_data: `toggle_collection_binding_${employee.id}_${collectionId}`,
-      },
-    ]);
+    //
+
+    const inlineKeyboard: any[] = [];
+    for (let i = 0; i < employees.length; i++) {
+      const employee = employees[i];
+
+      const binding = await this.collectionEmployeeModel.findOne({
+        where: {
+          collection_id: collectionId,
+          user_id: employee.id,
+        },
+      });
+
+      if (binding) {
+        inlineKeyboard.push([
+          {
+            text: `${binding.is_active ? '✅' : '❌'} ${employee.name}`,
+            callback_data: `toggle_collection_binding_${employee.id}_${collectionId}`,
+          },
+        ]);
+      }
+    }
 
     inlineKeyboard.push([
       {
@@ -300,5 +291,24 @@ export class CollectionsService {
         },
       },
     );
+  }
+
+  async finalizeCollection(ctx: Context, collectionId: number) {
+    const collection = await this.collectionModel.findByPk(collectionId);
+
+    if (!collection) return;
+
+    await this.collectionModel.update(
+      {
+        is_finilized: true,
+      },
+      {
+        where: {
+          id: collectionId,
+        },
+      },
+    );
+
+    await this.accumalateMenu(ctx);
   }
 }

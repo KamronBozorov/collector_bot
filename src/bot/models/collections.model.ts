@@ -3,6 +3,7 @@ import { Column, DataType, Model, Table } from 'sequelize-typescript';
 interface ICollectionAttributes {
   name?: string;
   amount?: number;
+  is_finilized?: boolean;
 }
 
 @Table({ tableName: 'collections', timestamps: false })
@@ -34,4 +35,13 @@ export class Collection extends Model<Collection, ICollectionAttributes> {
     },
   })
   declare amount: number;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    defaultValue: false,
+    validate: {
+      isBoolean: true,
+    },
+  })
+  declare is_finilized: boolean;
 }

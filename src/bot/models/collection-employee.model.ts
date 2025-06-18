@@ -44,6 +44,7 @@ export class CollectionEmployee extends Model<
     },
   })
   declare is_active: boolean;
+
   @Column({
     type: DataType.BOOLEAN,
     defaultValue: false,

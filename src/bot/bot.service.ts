@@ -6,9 +6,7 @@ import { Collection } from './models/collections.model';
 import { Employee } from './models/employees.model';
 import { CollectionEmployee } from './models/collection-employee.model';
 import { Sequelize } from 'sequelize-typescript';
-import { type } from 'os';
 import { QueryTypes } from 'sequelize';
-import { warn } from 'console';
 
 Sequelize;
 @Injectable()
@@ -82,9 +80,77 @@ export class BotService {
           break;
         }
 
+        //case lastState.startsWith('waiting_for_collection_amount_'): {
+        //  const collectionId = lastState.split('_')[4];
+        //
+        //  if (!collectionId) {
+        //    await ctx.replyWithHTML(`⚠️ <b>Yig‘im ID topilmadi.</b>`);
+        //    await this.userModel.update(
+        //      { last_state: 'main_menu' },
+        //      { where: { user_id: ctx.from?.id } },
+        //    );
+        //    return;
+        //  }
+        //
+        //  const amount = parseFloat(userInput);
+        //  if (isNaN(amount) || amount < 0) {
+        //    await ctx.replyWithHTML(
+        //      `🚫 <b>Iltimos, to‘g‘ri summa kiriting.</b>`,
+        //    );
+        //    return;
+        //  }
+        //
+        //  await this.collectionModel.update(
+        //    { amount: amount },
+        //    { where: { id: collectionId } },
+        //  );
+        //
+        //  const employees = await this.employeeModel.findAll();
+        //
+        //  if (employees.length === 0) {
+        //    await ctx.replyWithHTML(
+        //      `⚠️ <b>Hozirda hech qanday foydalanuvchi mavjud emas. Iltimos, avval foydalanuvchi qo‘shing.</b>`,
+        //    );
+        //    await this.userModel.update(
+        //      { last_state: 'main_menu' },
+        //      { where: { user_id: ctx.from?.id } },
+        //    );
+        //    return;
+        //  }
+        //
+        //  const inlineKeyboard = employees.map((employee) => [
+        //    {
+        //      text: `✅ ${employee.name}`,
+        //      callback_data: `toggle_collection_binding_${employee.id}_${collectionId}`,
+        //    },
+        //  ]);
+        //
+        //  inlineKeyboard.push([
+        //    {
+        //      text: '🟢 Yig‘imni yakunlash',
+        //      callback_data: `finalize_collection_${collectionId}`,
+        //    },
+        //  ]);
+        //
+        //  await ctx.replyWithHTML(
+        //    `<b>Quyidagi foydalanuvchilardan kimni ushbu yig‘imga biriktirmoqchisiz?</b>\nBosish orqali tanlang:`,
+        //    {
+        //      reply_markup: {
+        //        inline_keyboard: inlineKeyboard,
+        //      },
+        //    },
+        //  );
+        //
+        //  await this.userModel.update(
+        //    { last_state: `binding_collection_users_${collectionId}` },
+        //    { where: { user_id: ctx.from?.id } },
+        //  );
+        //
+        //  break;
+        //}
+
         case lastState.startsWith('waiting_for_collection_amount_'): {
           const collectionId = lastState.split('_')[4];
-
           if (!collectionId) {
             await ctx.replyWithHTML(`⚠️ <b>Yig‘im ID topilmadi.</b>`);
             await this.userModel.update(
@@ -111,7 +177,7 @@ export class BotService {
 
           if (employees.length === 0) {
             await ctx.replyWithHTML(
-              `⚠️ <b>Hozirda hech qanday foydalanuvchi mavjud emas. Iltimos, avval foydalanuvchi qo‘shing.</b>`,
+              `⚠️ <b>Hozirda hech qanday foydalanuvchi mavjud emas. Iltimos, avval foydalanuvchi qo'shing.</b>`,
             );
             await this.userModel.update(
               { last_state: 'main_menu' },
@@ -119,13 +185,37 @@ export class BotService {
             );
             return;
           }
+          const creating: any[] = [];
 
-          const inlineKeyboard = employees.map((employee) => [
-            {
-              text: `✅ ${employee.name}`,
-              callback_data: `toggle_collection_binding_${employee.id}_${collectionId}`,
-            },
-          ]);
+          for (const employee of employees) {
+            creating.push({
+              user_id: employee.id,
+              collection_id: collectionId,
+              is_paid: false,
+            });
+          }
+
+          const bindings =
+            await this.collectionEmployeeModel.bulkCreate(creating);
+
+          let inlineKeyboard: any[] = [];
+
+          const button = bindings.map(async (binding) => {
+            const name = await this.sequelize.query(
+              `SELECT e.name FROM employees e WHERE id=:id`,
+              {
+                type: QueryTypes.SELECT,
+                replacements: { id: binding.user_id },
+              },
+            );
+
+            return {
+              text: `${binding.is_active ? '✅' : '❌'} ${'name' in name[0] ? name[0].name : 'Kamron'}`,
+              callback_data: `toggle_collection_binding_${binding.user_id}_${binding.collection_id}`,
+            };
+          });
+
+          inlineKeyboard.push([...(await Promise.all(button))]);
 
           inlineKeyboard.push([
             {
@@ -144,7 +234,7 @@ export class BotService {
           );
 
           await this.userModel.update(
-            { last_state: `binding_collection_users_${collectionId}` },
+            { last_state: `main_menu` },
             { where: { user_id: ctx.from?.id } },
           );
 

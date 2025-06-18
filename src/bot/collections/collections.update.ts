@@ -85,6 +85,20 @@ export class CollectionsUpdate {
     }
   }
 
+  @Action(/^finalize_collection_(.+)/)
+  async finalizeCollection(@Ctx() ctx: Context) {
+    await this.deleteLastMessage(ctx);
+
+    const collectionId = await ctx.callbackQuery!['data'].split('_')[2];
+
+    if (collectionId) {
+      await this.collectionsService.finalizeCollection(
+        ctx,
+        parseInt(collectionId, 10),
+      );
+    }
+  }
+
   private async deleteLastMessage(ctx: Context) {
     const message = ctx.callbackQuery?.message;
     if (message && message.message_id) {
