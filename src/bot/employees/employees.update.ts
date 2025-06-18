@@ -1,30 +1,50 @@
 import { Action, Ctx, Hears, Update } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
+import { BotService } from '../bot.service';
 import { EmployeesService } from './employees.service';
 
 @Update()
 export class EmployeesUpdate {
-  constructor(private readonly employeesService: EmployeesService) {}
+  constructor(
+    private readonly employeesService: EmployeesService,
+    private readonly botService: BotService,
+  ) {}
 
   @Hears('👥 Foydalanuvchilar')
   async accumulateMenu(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.employeesService.accumulateMenu(ctx);
   }
 
   @Action('employee_accumulate_menu')
   async backToEmployeeMenu(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     await this.accumulateMenu(ctx);
   }
 
   @Action('create_employee')
   async create(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     await this.employeesService.create(ctx);
   }
 
   @Action(/view_employee_(.+)/)
   async viewEmployee(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     const employeeId = ctx.callbackQuery!['data'].split('_')[2];
     if (employeeId) {
@@ -34,6 +54,10 @@ export class EmployeesUpdate {
 
   @Action(/delete_employee_(.+)/)
   async deleteEmployee(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     const employeeId = ctx.callbackQuery!['data'].split('_')[2];
     if (employeeId) {
@@ -43,6 +67,10 @@ export class EmployeesUpdate {
 
   @Action(/edit_employee_(.+)/)
   async editEmployee(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     const employeeId = ctx.callbackQuery!['data'].split('_')[2];
     if (employeeId) {
@@ -52,6 +80,10 @@ export class EmployeesUpdate {
 
   @Action(/toggle_employee_(.+)_(.+)/)
   async toggleEmployee(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     const [employeeId, collectionId] = ctx
       .callbackQuery!['data'].split('_')
       .slice(2);

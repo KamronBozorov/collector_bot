@@ -6,8 +6,13 @@ import { BotService } from './bot.service';
 @Update()
 export class BotUpdate {
   constructor(private readonly botService: BotService) {}
+
   @Start()
   async start(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.botService.start(ctx);
   }
 
@@ -20,11 +25,19 @@ export class BotUpdate {
 
   @On('text')
   async on(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.botService.onText(ctx);
   }
 
   @Action('main_menu')
   async mainMenu(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     const message = ctx.callbackQuery?.message;
     await ctx.telegram.deleteMessage(ctx.chat?.id!, message?.message_id!);
 

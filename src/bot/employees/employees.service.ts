@@ -216,6 +216,10 @@ export class EmployeesService {
     }
   }
 
+  async findByPk(id: number) {
+    return await this.employeeModel.findByPk(id);
+  }
+
   //async addEmpyloyeeToCollection(
   //  ctx: Context,
   //  employeeId: number,

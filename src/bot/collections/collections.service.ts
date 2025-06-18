@@ -130,18 +130,20 @@ export class CollectionsService {
     for (let i = 0; i < bindings.length; i++) {
       const binding = bindings[i];
 
-      const name = await this.sequelize.query(
-        'SELECT name FROM employees WHERE id=:id',
-        {
-          type: QueryTypes.SELECT,
-          replacements: {
-            id: binding.user_id,
+      const emp = await this.employeeService.findByPk(binding.user_id);
+
+      if (!emp) {
+        await this.collectionEmployeeModel.destroy({
+          where: {
+            collection_id: collectionId,
+            user_id: binding.user_id,
           },
-        },
-      );
+        });
+        continue;
+      }
 
       buttonInfo.push({
-        text: `${binding.is_paid ? '✅' : '❌'} ${'name' in name[0] ? name[0].name : 'Unknown'}  `,
+        text: `${binding.is_paid ? '✅' : '❌'} ${emp?.name}  `,
         callback_data: `toggle_employee_${binding.user_id}_${collectionId}`,
       });
 

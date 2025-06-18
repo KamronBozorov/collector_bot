@@ -22,6 +22,18 @@ export class BotService {
     private readonly sequelize: Sequelize,
     @InjectBot(BOT_NAME) private readonly bot: Telegraf<any>,
   ) {}
+
+  async isNotAuthorized(ctx: Context): Promise<boolean> {
+    const adminId = process.env.ADMIN_ID;
+    if (!adminId) {
+      console.warn('ADMIN_ID environment variable is not set');
+      return true;
+    }
+
+    const userId = ctx.from?.id?.toString();
+    return userId !== adminId;
+  }
+
   async start(ctx: Context) {
     await ctx.sendChatAction('typing');
 

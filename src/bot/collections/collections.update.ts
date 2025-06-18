@@ -1,5 +1,6 @@
 import { Action, Ctx, Hears, Update } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
+import { BotService } from '../bot.service';
 import { CollectionsService } from './collections.service';
 
 interface CustomContext extends Context {
@@ -11,32 +12,55 @@ interface CustomContext extends Context {
 
 @Update()
 export class CollectionsUpdate {
-  constructor(private readonly collectionsService: CollectionsService) {}
+  constructor(
+    private readonly collectionsService: CollectionsService,
+    private readonly botService: BotService,
+  ) {}
 
   @Action('create_collection')
   async createCollection(@Ctx() ctx: CustomContext) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.collectionsService.create(ctx);
   }
 
   @Action(/delete_collection_(.+)/)
   async deleteCollection(@Ctx() ctx: CustomContext) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     await this.collectionsService.delete(ctx);
   }
 
   @Hears("💰 Pul yig'ish")
   async acumulate(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.collectionsService.accumalateMenu(ctx);
   }
 
   @Action(/collection_menu/)
   async collectionMenu(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     await this.collectionsService.accumalateMenu(ctx);
   }
 
   @Action(/^view_collection_(.+)/)
   async viewCollection(@Ctx() ctx: CustomContext) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     const collectionId = ctx.callbackQuery!['data'].split('_')[2];
     if (collectionId) {
@@ -46,6 +70,10 @@ export class CollectionsUpdate {
 
   @Action(/^cancel_collection_(.+)/)
   async cancelCollection(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     const collectionId = ctx.callbackQuery!['data'].split('_')[2];
 
@@ -59,6 +87,10 @@ export class CollectionsUpdate {
 
   @Action(/^accept_collection_(.+)/)
   async acceptCollection(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     const collectionId = ctx.callbackQuery!['data'].split('_')[2];
 
@@ -72,6 +104,10 @@ export class CollectionsUpdate {
 
   @Action(/toggle_collection_binding_(\d+)_(\d+)/)
   async toggleCollectionBinding(ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     const collectionId = ctx.callbackQuery!['data'].split('_')[4];
     const employeeId = ctx.callbackQuery!['data'].split('_')[3];
@@ -87,6 +123,10 @@ export class CollectionsUpdate {
 
   @Action(/^finalize_collection_(.+)/)
   async finalizeCollection(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
 
     const collectionId = await ctx.callbackQuery!['data'].split('_')[2];
@@ -101,6 +141,10 @@ export class CollectionsUpdate {
 
   @Action(/^archive_collection_(.+)/)
   async archiveCollection(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     const collectionId = ctx.callbackQuery!['data'].split('_')[2];
     if (collectionId) {
@@ -113,6 +157,10 @@ export class CollectionsUpdate {
 
   @Action(/^unarchive_collection_(.+)/)
   async unarchiveCollection(@Ctx() ctx: Context) {
+    if (await this.botService.isNotAuthorized(ctx)) {
+      await ctx.reply('🚫 Siz ushbu botdan foydalana olmaysiz.');
+      return;
+    }
     await this.deleteLastMessage(ctx);
     const collectionId = ctx.callbackQuery!['data'].split('_')[2];
     if (collectionId) {
